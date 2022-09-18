@@ -5,8 +5,10 @@
     "dependencies": {
         "@redblobgames/dual-mesh": "https://github.com/redblobgames/dual-mesh",
         "@redblobgames/prng": "https://github.com/redblobgames/prng",
+        "esbuild": "^0.15.7",
         "flatqueue": "^1",
         "gl-matrix": "^3",
+        "http-server": "^14.1.1",
         "regl": "^1",
         "simplex-noise": "^2"
     },

@@ -9,18 +9,14 @@
  */
 
 module.exports = {
-    spacing: 5,
-    mountainSpacing: 35,
-    mountainDensity: 1500,
-    mesh: {
-        seed: 12345,
-    },
-    elevation: {
-    },
-    biomes: {
-    },
-    rivers: {
-    },
-    render: {
-    },
+  spacing: 5,
+  mountainSpacing: 35,
+  mountainDensity: 1500,
+  mesh: {
+    seed: 12345,
+  },
+  elevation: {},
+  biomes: {},
+  rivers: {},
+  render: {},
 };

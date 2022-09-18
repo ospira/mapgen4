@@ -6,33 +6,51 @@
  * This module uses webgl+regl to render the generated maps
  */
 
-'use strict';
+"use strict";
 
-import {vec4, mat4} from 'gl-matrix';
-import colormap from './colormap';
-import Geometry from './geometry';
-import createREGL from 'regl';
+import { vec4, mat4 } from "gl-matrix";
+import colormap from "./colormap";
+import Geometry from "./geometry";
+import createREGL from "regl";
 const regl = createREGL({
-    canvas: "#mapgen4",
-    extensions: ['OES_element_index_uint']
+  canvas: "#mapgen4",
+  extensions: ["OES_element_index_uint"],
 });
 
-
-const river_texturemap = regl.texture({data: Geometry.createRiverBitmap(), mipmap: 'nice', min: 'mipmap', mag: 'linear', premultiplyAlpha: true});
+const river_texturemap = regl.texture({
+  data: Geometry.createRiverBitmap(),
+  mipmap: "nice",
+  min: "mipmap",
+  mag: "linear",
+  premultiplyAlpha: true,
+});
 const fbo_texture_size = 2048;
-const fbo_land_texture = regl.texture({width: fbo_texture_size, height: fbo_texture_size});
-const fbo_land = regl.framebuffer({color: fbo_land_texture});
-const fbo_depth_texture = regl.texture({width: fbo_texture_size, height: fbo_texture_size});
-const fbo_z = regl.framebuffer({color: fbo_depth_texture});
-const fbo_river_texture = regl.texture({width: fbo_texture_size, height: fbo_texture_size});
-const fbo_river = regl.framebuffer({color: fbo_river_texture});
-const fbo_final_texture = regl.texture({width: fbo_texture_size, height: fbo_texture_size, min: 'linear', mag: 'linear'});
-const fbo_final = regl.framebuffer({color: fbo_final_texture});
-
+const fbo_land_texture = regl.texture({
+  width: fbo_texture_size,
+  height: fbo_texture_size,
+});
+const fbo_land = regl.framebuffer({ color: fbo_land_texture });
+const fbo_depth_texture = regl.texture({
+  width: fbo_texture_size,
+  height: fbo_texture_size,
+});
+const fbo_z = regl.framebuffer({ color: fbo_depth_texture });
+const fbo_river_texture = regl.texture({
+  width: fbo_texture_size,
+  height: fbo_texture_size,
+});
+const fbo_river = regl.framebuffer({ color: fbo_river_texture });
+const fbo_final_texture = regl.texture({
+  width: fbo_texture_size,
+  height: fbo_texture_size,
+  min: "linear",
+  mag: "linear",
+});
+const fbo_final = regl.framebuffer({ color: fbo_final_texture });
 
 /* draw rivers to a texture, which will be draped on the map surface */
 const drawRivers = regl({
-    frag: `
+  frag: `
 precision mediump float;
 uniform sampler2D u_rivertexturemap;
 varying vec2 v_uv;
@@ -43,7 +61,7 @@ void main() {
    // gl_FragColor = color;
 }`,
 
-    vert: `
+  vert: `
 precision highp float;
 uniform mat4 u_projection;
 attribute vec4 a_xyuv;
@@ -52,35 +70,34 @@ void main() {
   v_uv = a_xyuv.ba;
   gl_Position = vec4(u_projection * vec4(a_xyuv.xy, 0, 1));
 }`,
-    
-    uniforms:  {
-        u_projection: regl.prop('u_projection'),
-        u_rivertexturemap: river_texturemap,
-    },
 
-    framebuffer: fbo_river,
-    blend: {
-        enable: true,
-        func: {src:'one', dst:'one minus src alpha'},
-        equation: {
-            rgb: 'add',
-            alpha: 'add'
-        },
-    color: [0, 0, 0, 0]
+  uniforms: {
+    u_projection: regl.prop("u_projection"),
+    u_rivertexturemap: river_texturemap,
+  },
+
+  framebuffer: fbo_river,
+  blend: {
+    enable: true,
+    func: { src: "one", dst: "one minus src alpha" },
+    equation: {
+      rgb: "add",
+      alpha: "add",
     },
-    depth: {
-        enable: false,
-    },
-    count: regl.prop('count'),
-    attributes: {
-        a_xyuv: regl.prop('a_xyuv'),
-    },
+    color: [0, 0, 0, 0],
+  },
+  depth: {
+    enable: false,
+  },
+  count: regl.prop("count"),
+  attributes: {
+    a_xyuv: regl.prop("a_xyuv"),
+  },
 });
-
 
 /* write 16-bit elevation to a texture's G,R channels; the B,A channels are empty */
 const drawLand = regl({
-    frag: `
+  frag: `
 precision highp float;
 uniform sampler2D u_water;
 uniform float u_outline_water;
@@ -106,7 +123,7 @@ void main() {
    // blending R,G channels independently isn't going to give the right answer
 }`,
 
-    vert: `
+  vert: `
 precision highp float;
 uniform mat4 u_projection;
 attribute vec2 a_xy;
@@ -120,36 +137,35 @@ void main() {
     gl_Position = pos;
 }`,
 
-    uniforms:  {
-        u_projection: regl.prop('u_projection'),
-        u_water: regl.prop('u_water'),
-        u_outline_water: regl.prop('u_outline_water'),
-        u_m: regl.prop('u_m'),
-    },
+  uniforms: {
+    u_projection: regl.prop("u_projection"),
+    u_water: regl.prop("u_water"),
+    u_outline_water: regl.prop("u_outline_water"),
+    u_m: regl.prop("u_m"),
+  },
 
-    framebuffer: fbo_land,
-    depth: {
-        enable: false,
-    },
-    elements: regl.prop('elements'),
-    attributes: {
-        a_xy: regl.prop('a_xy'),
-        a_em: regl.prop('a_em'),
-    },
+  framebuffer: fbo_land,
+  depth: {
+    enable: false,
+  },
+  elements: regl.prop("elements"),
+  attributes: {
+    a_xy: regl.prop("a_xy"),
+    a_em: regl.prop("a_em"),
+  },
 });
-
 
 /* using the same perspective as the final output, write the depth
    to a texture, G,R channels; used for outline shader */
 const drawDepth = regl({
-    frag: `
+  frag: `
 precision highp float;
 varying float v_z;
 void main() {
    gl_FragColor = vec4(fract(256.0*v_z), floor(256.0*v_z)/256.0, 0, 1);
 }`,
 
-    vert: `
+  vert: `
 precision highp float;
 uniform mat4 u_projection;
 attribute vec2 a_xy;
@@ -161,23 +177,22 @@ void main() {
     gl_Position = pos;
 }`,
 
-    framebuffer: fbo_z,
-    elements: regl.prop('elements'),
-    attributes: {
-        a_xy: regl.prop('a_xy'),
-        a_em: regl.prop('a_em'),
-    },
-    uniforms: {
-        u_projection: regl.prop('u_projection'),
-    },
+  framebuffer: fbo_z,
+  elements: regl.prop("elements"),
+  attributes: {
+    a_xy: regl.prop("a_xy"),
+    a_em: regl.prop("a_em"),
+  },
+  uniforms: {
+    u_projection: regl.prop("u_projection"),
+  },
 });
-
 
 /* draw the final image by draping the biome colors over the geometry;
    note that u_depth and u_mapdata are both encoded with G,R channels
    for 16 bits */
 const drawDrape = regl({
-    frag: `
+  frag: `
 precision highp float;
 uniform sampler2D u_colormap;
 uniform sampler2D u_mapdata;
@@ -253,7 +268,7 @@ void main() {
    gl_FragColor = vec4(mix(biome_color, water_color.rgb, water_color.a) * light / outline, 1);
 }`,
 
-    vert: `
+  vert: `
 precision highp float;
 uniform mat4 u_projection;
 attribute vec2 a_xy;
@@ -268,37 +283,42 @@ void main() {
     gl_Position = pos;
 }`,
 
-    framebuffer: fbo_final,
-    elements: regl.prop('elements'),
-    attributes: {
-        a_xy: regl.prop('a_xy'),
-        a_em: regl.prop('a_em'),
-    },
-    uniforms: {
-        u_projection: regl.prop('u_projection'),
-        u_depth: regl.prop('u_depth'),
-        u_colormap: regl.texture({width: colormap.width, height: colormap.height, data: colormap.data, wrapS: 'clamp', wrapT: 'clamp'}),
-        u_mapdata: () => fbo_land_texture,
-        u_water: regl.prop('u_water'),
-        u_inverse_texture_size: 1.5 / fbo_texture_size,
-        u_light_angle: regl.prop('u_light_angle'),
-        u_slope: regl.prop('u_slope'),
-        u_flat: regl.prop('u_flat'),
-        u_ambient: regl.prop('u_ambient'),
-        u_overhead: regl.prop('u_overhead'),
-        u_outline_depth: regl.prop('u_outline_depth'),
-        u_outline_coast: regl.prop('u_outline_coast'),
-        u_outline_water: regl.prop('u_outline_water'),
-        u_outline_strength: regl.prop('u_outline_strength'),
-        u_outline_threshold: regl.prop('u_outline_threshold'),
-        u_biome_colors: regl.prop('u_biome_colors'),
-    },
+  framebuffer: fbo_final,
+  elements: regl.prop("elements"),
+  attributes: {
+    a_xy: regl.prop("a_xy"),
+    a_em: regl.prop("a_em"),
+  },
+  uniforms: {
+    u_projection: regl.prop("u_projection"),
+    u_depth: regl.prop("u_depth"),
+    u_colormap: regl.texture({
+      width: colormap.width,
+      height: colormap.height,
+      data: colormap.data,
+      wrapS: "clamp",
+      wrapT: "clamp",
+    }),
+    u_mapdata: () => fbo_land_texture,
+    u_water: regl.prop("u_water"),
+    u_inverse_texture_size: 1.5 / fbo_texture_size,
+    u_light_angle: regl.prop("u_light_angle"),
+    u_slope: regl.prop("u_slope"),
+    u_flat: regl.prop("u_flat"),
+    u_ambient: regl.prop("u_ambient"),
+    u_overhead: regl.prop("u_overhead"),
+    u_outline_depth: regl.prop("u_outline_depth"),
+    u_outline_coast: regl.prop("u_outline_coast"),
+    u_outline_water: regl.prop("u_outline_water"),
+    u_outline_strength: regl.prop("u_outline_strength"),
+    u_outline_threshold: regl.prop("u_outline_threshold"),
+    u_biome_colors: regl.prop("u_biome_colors"),
+  },
 });
-
 
 /* draw the high resolution final output to the screen, smoothed and resized */
 const drawFinal = regl({
-    frag: `
+  frag: `
 precision mediump float;
 uniform sampler2D u_texture;
 uniform vec2 u_offset;
@@ -307,7 +327,7 @@ void main() {
    gl_FragColor = texture2D(u_texture, v_uv + u_offset);
 }`,
 
-    vert: `
+  vert: `
 precision highp float;
 attribute vec2 a_uv;
 varying vec2 v_uv;
@@ -315,241 +335,296 @@ void main() {
   v_uv = a_uv;
   gl_Position = vec4(2.0 * v_uv - 1.0, 0.0, 1.0);
 }`,
-    
-    uniforms:  {
-        u_texture: fbo_final_texture,
-        u_offset: regl.prop('u_offset'),
-    },
-    depth: {
-        enable: false,
-    },
-    count: 3,
-    attributes: {
-        a_uv: [-2, 0, 0, -2, 2, 2]
-    },
+
+  uniforms: {
+    u_texture: fbo_final_texture,
+    u_offset: regl.prop("u_offset"),
+  },
+  depth: {
+    enable: false,
+  },
+  count: 3,
+  attributes: {
+    a_uv: [-2, 0, 0, -2, 2, 2],
+  },
 });
 
-
-
 class Renderer {
-    constructor (mesh) {
-        this.resizeCanvas();
-        
-        this.topdown = mat4.create();
-        mat4.translate(this.topdown, this.topdown, [-1, -1, 0]);
-        mat4.scale(this.topdown, this.topdown, [1/500, 1/500, 1]);
+  constructor(mesh) {
+    this.resizeCanvas();
 
-        this.projection = mat4.create();
-        this.inverse_projection = mat4.create();
-        
-        this.a_quad_xy = new Float32Array(2 * (mesh.numRegions + mesh.numTriangles));
-        this.a_quad_em = new Float32Array(2 * (mesh.numRegions + mesh.numTriangles));
-        this.quad_elements = new Int32Array(3 * mesh.numSolidSides);
-        /* NOTE: The maximum number of river triangles will be when
-         * there's a single binary tree that has every node filled.
-         * Each of the N/2 leaves will produce 1 output triangle and
-         * each of the N/2 nodes will produce 2 triangles. On average
-         * there will be 1.5 output triangles per input triangle. */
-        this.a_river_xyuv = new Float32Array(1.5 * 3 * 4 * mesh.numSolidTriangles);
-        this.numRiverTriangles = 0;
-        
-        Geometry.setMeshGeometry(mesh, this.a_quad_xy);
-        
-        this.buffer_quad_xy = regl.buffer({
-            usage: 'static',
-            type: 'float',
-            data: this.a_quad_xy,
-        });
+    this.topdown = mat4.create();
+    mat4.translate(this.topdown, this.topdown, [-1, -1, 0]);
+    mat4.scale(this.topdown, this.topdown, [1 / 500, 1 / 500, 1]);
 
-        this.buffer_quad_em = regl.buffer({
-            usage: 'dynamic',
-            type: 'float',
-            length: 4 * this.a_quad_em.length,
-        });
+    this.projection = mat4.create();
+    this.inverse_projection = mat4.create();
 
-        this.buffer_quad_elements = regl.elements({
-            primitive: 'triangles',
-            usage: 'dynamic',
-            type: 'uint32',
-            length: 4 * this.quad_elements.length,
-            count: this.quad_elements.length,
-        });
+    this.a_quad_xy = new Float32Array(
+      2 * (mesh.numRegions + mesh.numTriangles)
+    );
+    this.a_quad_em = new Float32Array(
+      2 * (mesh.numRegions + mesh.numTriangles)
+    );
+    this.quad_elements = new Int32Array(3 * mesh.numSolidSides);
+    /* NOTE: The maximum number of river triangles will be when
+     * there's a single binary tree that has every node filled.
+     * Each of the N/2 leaves will produce 1 output triangle and
+     * each of the N/2 nodes will produce 2 triangles. On average
+     * there will be 1.5 output triangles per input triangle. */
+    this.a_river_xyuv = new Float32Array(1.5 * 3 * 4 * mesh.numSolidTriangles);
+    this.numRiverTriangles = 0;
 
-        this.buffer_river_xyuv = regl.buffer({
-            usage: 'dynamic',
-            type: 'float',
-            length: 4 * this.a_river_xyuv.length,
-        });
+    Geometry.setMeshGeometry(mesh, this.a_quad_xy);
 
-        this.screenshotCanvas = document.createElement('canvas');
-        this.screenshotCanvas.width = fbo_texture_size;
-        this.screenshotCanvas.height = fbo_texture_size;
-        this.screenshotCallback = null;
-        
-        this.renderParam = undefined;
-        this.startDrawingLoop();
+    this.buffer_quad_xy = regl.buffer({
+      usage: "static",
+      type: "float",
+      data: this.a_quad_xy,
+    });
+
+    this.buffer_quad_em = regl.buffer({
+      usage: "dynamic",
+      type: "float",
+      length: 4 * this.a_quad_em.length,
+    });
+
+    this.buffer_quad_elements = regl.elements({
+      primitive: "triangles",
+      usage: "dynamic",
+      type: "uint32",
+      length: 4 * this.quad_elements.length,
+      count: this.quad_elements.length,
+    });
+
+    this.buffer_river_xyuv = regl.buffer({
+      usage: "dynamic",
+      type: "float",
+      length: 4 * this.a_river_xyuv.length,
+    });
+
+    this.screenshotCanvas = document.createElement("canvas");
+    this.screenshotCanvas.width = fbo_texture_size;
+    this.screenshotCanvas.height = fbo_texture_size;
+    this.screenshotCallback = null;
+
+    this.renderParam = undefined;
+    this.startDrawingLoop();
+  }
+
+  /**
+   * @param {[number, number]} coords - screen coordinates 0 ≤ x ≤ 1, 0 ≤ y ≤ 1
+   * @returns {[number, number]} - world coords 0 ≤ x ≤ 1000, 0 ≤ y ≤ 1000
+   */
+  screenToWorld(coords) {
+    /* convert from screen 2d (inverted y) to 4d for matrix multiply */
+    let glCoords = vec4.fromValues(
+      coords[0] * 2 - 1,
+      1 - coords[1] * 2,
+      /* TODO: z should be 0 only when tilt_deg is 0;
+       * need to figure out the proper z value here */
+      0,
+      1
+    );
+    /* it returns vec4 but we only need vec2; they're compatible */
+    let transformed = vec4.transformMat4(
+      vec4.create(),
+      glCoords,
+      this.inverse_projection
+    );
+    return [transformed[0], transformed[1]];
+  }
+
+  /* Update the buffers with the latest map data */
+  updateMap() {
+    this.buffer_quad_em.subdata(this.a_quad_em);
+    this.buffer_quad_elements.subdata(this.quad_elements);
+    this.buffer_river_xyuv.subdata(
+      this.a_river_xyuv.subarray(0, 4 * 3 * this.numRiverTriangles)
+    );
+  }
+
+  /* Allow drawing at a different resolution than the internal texture size */
+  resizeCanvas() {
+    let canvas = /** @type{HTMLCanvasElement} */ (
+      document.getElementById("mapgen4")
+    );
+    let size = canvas.clientWidth;
+    size = 2048; /* could be smaller to increase performance */
+    if (canvas.width !== size || canvas.height !== size) {
+      console.log(
+        `Resizing canvas from ${canvas.width}x${canvas.height} to ${size}x${size}`
+      );
+      canvas.width = canvas.height = size;
+      regl.poll();
     }
+  }
 
-    /**
-     * @param {[number, number]} coords - screen coordinates 0 ≤ x ≤ 1, 0 ≤ y ≤ 1
-     * @returns {[number, number]} - world coords 0 ≤ x ≤ 1000, 0 ≤ y ≤ 1000 
-     */
-    screenToWorld(coords) {
-        /* convert from screen 2d (inverted y) to 4d for matrix multiply */
-        let glCoords = vec4.fromValues(
-            coords[0] * 2 - 1,
-            1 - coords[1] * 2,
-            /* TODO: z should be 0 only when tilt_deg is 0;
-             * need to figure out the proper z value here */
-            0,
-            1
+  startDrawingLoop() {
+    /* Only draw when render parameters have been passed in;
+     * otherwise skip the render and wait for the next tick */
+    regl.frame((context) => {
+      const renderParam = this.renderParam;
+      if (!renderParam) {
+        return;
+      }
+      this.renderParam = undefined;
+
+      if (this.numRiverTriangles > 0) {
+        drawRivers({
+          count: 3 * this.numRiverTriangles,
+          a_xyuv: this.buffer_river_xyuv,
+          u_projection: this.topdown,
+        });
+      }
+
+      drawLand({
+        elements: this.buffer_quad_elements,
+        a_xy: this.buffer_quad_xy,
+        a_em: this.buffer_quad_em,
+        u_projection: this.topdown,
+        u_water: fbo_river_texture,
+        u_outline_water: renderParam.outline_water,
+      });
+
+      /* Standard rotation for orthographic view */
+      mat4.identity(this.projection);
+      mat4.rotateX(
+        this.projection,
+        this.projection,
+        ((180 + renderParam.tilt_deg) * Math.PI) / 180
+      );
+      mat4.rotateZ(
+        this.projection,
+        this.projection,
+        (renderParam.rotate_deg * Math.PI) / 180
+      );
+
+      /* Top-down oblique copies column 2 (y input) to row 3 (z
+       * output). Typical matrix libraries such as glm's mat4 or
+       * Unity's Matrix4x4 or Unreal's FMatrix don't have this
+       * this.projection built-in. For mapgen4 I merge orthographic
+       * (which will *move* part of y-input to z-output) and
+       * top-down oblique (which will *copy* y-input to z-output).
+       * <https://en.wikipedia.org/wiki/Oblique_projection> */
+      this.projection[9] = 1;
+
+      /* Scale and translate works on the hybrid this.projection */
+      mat4.scale(this.projection, this.projection, [
+        renderParam.zoom / 100,
+        renderParam.zoom / 100,
+        (renderParam.mountain_height * renderParam.zoom) / 100,
+      ]);
+      mat4.translate(this.projection, this.projection, [
+        -renderParam.x,
+        -renderParam.y,
+        0,
+      ]);
+
+      /* Keep track of the inverse matrix for mapping mouse to world coordinates */
+      mat4.invert(this.inverse_projection, this.projection);
+
+      if (renderParam.outline_depth > 0) {
+        drawDepth({
+          elements: this.buffer_quad_elements,
+          a_xy: this.buffer_quad_xy,
+          a_em: this.buffer_quad_em,
+          u_projection: this.projection,
+        });
+      }
+
+      drawDrape({
+        elements: this.buffer_quad_elements,
+        a_xy: this.buffer_quad_xy,
+        a_em: this.buffer_quad_em,
+        u_water: fbo_river_texture,
+        u_depth: fbo_depth_texture,
+        u_projection: this.projection,
+        u_light_angle: [
+          Math.cos(
+            (Math.PI / 180) *
+              (renderParam.light_angle_deg + renderParam.rotate_deg)
+          ),
+          Math.sin(
+            (Math.PI / 180) *
+              (renderParam.light_angle_deg + renderParam.rotate_deg)
+          ),
+        ],
+        u_slope: renderParam.slope,
+        u_flat: renderParam.flat,
+        u_ambient: renderParam.ambient,
+        u_overhead: renderParam.overhead,
+        u_outline_depth: renderParam.outline_depth * 5 * renderParam.zoom,
+        u_outline_coast: renderParam.outline_coast,
+        u_outline_water: renderParam.outline_water,
+        u_outline_strength: renderParam.outline_strength,
+        u_outline_threshold: renderParam.outline_threshold / 1000,
+        u_biome_colors: renderParam.biome_colors,
+      });
+
+      drawFinal({
+        u_offset: [0.5 / fbo_texture_size, 0.5 / fbo_texture_size],
+      });
+
+      if (this.screenshotCallback) {
+        // TODO: regl says I need to use preserveDrawingBuffer
+        const gl = regl._gl;
+        const ctx = this.screenshotCanvas.getContext("2d");
+        const imageData = ctx.getImageData(
+          0,
+          0,
+          fbo_texture_size,
+          fbo_texture_size
         );
-        /* it returns vec4 but we only need vec2; they're compatible */
-        let transformed = vec4.transformMat4(vec4.create(), glCoords, this.inverse_projection);
-        return [transformed[0], transformed[1]];
-    }
-    
-    /* Update the buffers with the latest map data */
-    updateMap() {
-        this.buffer_quad_em.subdata(this.a_quad_em);
-        this.buffer_quad_elements.subdata(this.quad_elements);
-        this.buffer_river_xyuv.subdata(this.a_river_xyuv.subarray(0, 4 * 3 * this.numRiverTriangles));
-    }
+        const bytesPerRow = 4 * fbo_texture_size;
+        const buffer = new Uint8Array(bytesPerRow * fbo_texture_size);
+        gl.readPixels(
+          0,
+          0,
+          fbo_texture_size,
+          fbo_texture_size,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          buffer
+        );
 
-    /* Allow drawing at a different resolution than the internal texture size */
-    resizeCanvas() {
-        let canvas = /** @type{HTMLCanvasElement} */(document.getElementById('mapgen4'));
-        let size = canvas.clientWidth;
-        size = 2048; /* could be smaller to increase performance */
-        if (canvas.width !== size || canvas.height !== size) {
-            console.log(`Resizing canvas from ${canvas.width}x${canvas.height} to ${size}x${size}`);
-            canvas.width = canvas.height = size;
-            regl.poll();
+        // Flip row order from WebGL to Canvas
+        for (let y = 0; y < fbo_texture_size; y++) {
+          const rowBuffer = new Uint8Array(
+            buffer.buffer,
+            y * bytesPerRow,
+            bytesPerRow
+          );
+          imageData.data.set(
+            rowBuffer,
+            (fbo_texture_size - y - 1) * bytesPerRow
+          );
         }
-    }
+        ctx.putImageData(imageData, 0, 0);
 
-    startDrawingLoop() {
-        /* Only draw when render parameters have been passed in;
-         * otherwise skip the render and wait for the next tick */
-        regl.frame(context => {
-            const renderParam = this.renderParam;
-            if (!renderParam) { return; }
-            this.renderParam = undefined;
+        this.screenshotCallback();
+        this.screenshotCallback = null;
+      }
 
-            if (this.numRiverTriangles > 0) {
-                drawRivers({
-                    count: 3 * this.numRiverTriangles,
-                    a_xyuv: this.buffer_river_xyuv,
-                    u_projection: this.topdown,
-                });
-            }
-            
-            drawLand({
-                elements: this.buffer_quad_elements,
-                a_xy: this.buffer_quad_xy,
-                a_em: this.buffer_quad_em,
-                u_projection: this.topdown,
-                u_water: fbo_river_texture,
-                u_outline_water: renderParam.outline_water,
-            });
+      // I don't have to clear fbo_em because it doesn't have depth
+      // and will be redrawn every frame. I do have to clear
+      // fbo_river because even though it doesn't have depth, it
+      // doesn't draw all triangles.
+      fbo_river.use(() => {
+        regl.clear({ color: [0, 0, 0, 0] });
+      });
+      fbo_z.use(() => {
+        regl.clear({ color: [0, 0, 0, 1], depth: 1 });
+      });
+      fbo_final.use(() => {
+        regl.clear({ color: [0.2, 0.3, 0.5, 1], depth: 1 });
+      });
+    });
+  }
 
-            /* Standard rotation for orthographic view */
-            mat4.identity(this.projection);
-            mat4.rotateX(this.projection, this.projection, (180 + renderParam.tilt_deg) * Math.PI/180);
-            mat4.rotateZ(this.projection, this.projection, renderParam.rotate_deg * Math.PI/180);
-            
-            /* Top-down oblique copies column 2 (y input) to row 3 (z
-             * output). Typical matrix libraries such as glm's mat4 or
-             * Unity's Matrix4x4 or Unreal's FMatrix don't have this
-             * this.projection built-in. For mapgen4 I merge orthographic
-             * (which will *move* part of y-input to z-output) and
-             * top-down oblique (which will *copy* y-input to z-output).
-             * <https://en.wikipedia.org/wiki/Oblique_projection> */
-            this.projection[9] = 1;
-            
-            /* Scale and translate works on the hybrid this.projection */
-            mat4.scale(this.projection, this.projection, [renderParam.zoom/100, renderParam.zoom/100, renderParam.mountain_height * renderParam.zoom/100]);
-            mat4.translate(this.projection, this.projection, [-renderParam.x, -renderParam.y, 0]);
-
-            /* Keep track of the inverse matrix for mapping mouse to world coordinates */
-            mat4.invert(this.inverse_projection, this.projection);
-
-            if (renderParam.outline_depth > 0) {
-                drawDepth({
-                    elements: this.buffer_quad_elements,
-                    a_xy: this.buffer_quad_xy,
-                    a_em: this.buffer_quad_em,
-                    u_projection: this.projection
-                });
-            }
-            
-            drawDrape({
-                elements: this.buffer_quad_elements,
-                a_xy: this.buffer_quad_xy,
-                a_em: this.buffer_quad_em,
-                u_water: fbo_river_texture,
-                u_depth: fbo_depth_texture,
-                u_projection: this.projection,
-                u_light_angle: [
-                    Math.cos(Math.PI/180 * (renderParam.light_angle_deg + renderParam.rotate_deg)),
-                    Math.sin(Math.PI/180 * (renderParam.light_angle_deg + renderParam.rotate_deg)),
-                ],
-                u_slope: renderParam.slope,
-                u_flat: renderParam.flat,
-                u_ambient: renderParam.ambient,
-                u_overhead: renderParam.overhead,
-                u_outline_depth: renderParam.outline_depth * 5 * renderParam.zoom,
-                u_outline_coast: renderParam.outline_coast,
-                u_outline_water: renderParam.outline_water,
-                u_outline_strength: renderParam.outline_strength,
-                u_outline_threshold: renderParam.outline_threshold / 1000,
-                u_biome_colors: renderParam.biome_colors,
-            });
-
-            drawFinal({
-                u_offset: [0.5 / fbo_texture_size, 0.5 / fbo_texture_size],
-            });
-
-            if (this.screenshotCallback) {
-                // TODO: regl says I need to use preserveDrawingBuffer
-                const gl = regl._gl;
-                const ctx = this.screenshotCanvas.getContext('2d');
-                const imageData = ctx.getImageData(0, 0, fbo_texture_size, fbo_texture_size);
-                const bytesPerRow = 4 * fbo_texture_size;
-                const buffer = new Uint8Array(bytesPerRow * fbo_texture_size);
-                gl.readPixels(0, 0, fbo_texture_size, fbo_texture_size, gl.RGBA, gl.UNSIGNED_BYTE, buffer);
-
-                // Flip row order from WebGL to Canvas
-                for (let y = 0; y < fbo_texture_size; y++) {
-                    const rowBuffer = new Uint8Array(buffer.buffer, y * bytesPerRow, bytesPerRow);
-                    imageData.data.set(rowBuffer, (fbo_texture_size-y-1) * bytesPerRow);
-                }
-                ctx.putImageData(imageData, 0, 0);
-
-                this.screenshotCallback();
-                this.screenshotCallback = null;
-            }
-                
-            // I don't have to clear fbo_em because it doesn't have depth
-            // and will be redrawn every frame. I do have to clear
-            // fbo_river because even though it doesn't have depth, it
-            // doesn't draw all triangles.
-            fbo_river.use(() => {
-                regl.clear({color: [0, 0, 0, 0]});
-            });
-            fbo_z.use(() => {
-                regl.clear({color: [0, 0, 0, 1], depth: 1});
-            });
-            fbo_final.use(() => {
-                regl.clear({color: [0.2, 0.3, 0.5, 1], depth: 1});
-            });
-        });
-    }
-    
-
-    updateView(renderParam) {
-        this.renderParam = renderParam;
-    }
+  updateView(renderParam) {
+    this.renderParam = renderParam;
+  }
 }
 
 export default Renderer;
